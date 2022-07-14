@@ -7,6 +7,7 @@ from tensorflow import keras
 import sys
 import argparse
 from glob import glob
+
 mp_drawing = mp.solutions.drawing_utils
 mp_hands = mp.solutions.hands
 
