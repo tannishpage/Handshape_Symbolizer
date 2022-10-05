@@ -1,3 +1,4 @@
+from tabnanny import verbose
 import cv2
 import mediapipe as mp
 import numpy as np
@@ -14,13 +15,13 @@ opposite = lambda x: "Right" if x == "Left" else "Left"
 
 mp_drawing = mp.solutions.drawing_utils
 mp_hands = mp.solutions.hands
-folder = "/home/tannishpage/Videos/Auslan_Videos_JKorte"
+folder = "/home/aravind/mtpt/Videos/Julie_Videos"
 files = [f for f in os.listdir(folder)] #"/home/tannishpage/Videos/Filtered_For_Perfection/PEXbQEnjzo8_Filtered_OLD.mp4" #"/home/tannishpage/Videos/Auslan_Videos_JKorte/Person_214.mp4"
 
 model_keypoints = mp_hands.Hands(min_detection_confidence=0.55,
                                  min_tracking_confidence=0.55,
                                  max_num_hands=2)
-model_classify = keras.models.load_model("./hand_models/modelv5.3")
+model_classify = keras.models.load_model("../A-Method-for-Clustering-and-Classifying-Hand-shapes-from-Auslan/hand_models/modelv5.1_Good_model")
 # # TODO: Find a way to input the class names rather than hardcoding them
 class_names = sign_names = ['WRITE', 'CLAWED FOUR', 'LETTER-M', 'FLICK',
                             'EIGHT', 'OKAY', 'PLANE', 'ONE-HAND-LETTER-D',
@@ -69,6 +70,9 @@ for file in files:
         results = model_keypoints.process(image)
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
+        found_left = False
+        found_right = False
+
         if results.multi_hand_landmarks is not None:
             # For each hand we want to look at the keypoints and grab a ratio
             # To normalize them
@@ -83,6 +87,15 @@ for file in files:
                     kp.append(np.array([point.x * ratio, point.y, point.z * ratio]))
 
                 label = results.multi_handedness[hand_landmarks_idx].classification[0].label
+                if label == "Right" and found_right:
+                    print("\nFound another Right")
+                    label = opposite(label)
+                
+                if label == "Left" and found_left:
+                    print("\nFound another Left")
+                    label = opposite(label)
+
+                #print(results.multi_handedness[hand_landmarks_idx].classification[0].index, results.multi_handedness[hand_landmarks_idx].classification[0].label, results.multi_handedness[hand_landmarks_idx].classification[0].score)
 
                 keypoints = np.array(kp)
                 keypoints = subtract_offset(keypoints)
@@ -94,20 +107,22 @@ for file in files:
                     keypoints[:, 0] *= -1
 
                     keypoints = tf.expand_dims(keypoints.flatten(), 0)
-                    predictions = model_classify.predict(keypoints)
+                    predictions = model_classify.predict(keypoints, verbose=0)
                     score = predictions[0]
 
                     class_label = class_names[np.argmax(score)]
                     class_score = str(round(100 * np.max(score), 2))
+                    found_left = True
 
                 else:
                     right += 1
                     keypoints = tf.expand_dims(keypoints.flatten(), 0)
-                    predictions = model_classify.predict(keypoints)
+                    predictions = model_classify.predict(keypoints, verbose=0)
                     score = predictions[0]
 
                     class_label = class_names[np.argmax(score)]
                     class_score = str(round(100 * np.max(score), 2))
+                    found_right = True
 
                 handshape_tracked_symbols[label].append(symbols[class_label])
                 handshape_tracked_symbols["Frame"].append(str(frame_count))
